@@ -14,6 +14,7 @@
 #define MSG_SET_VISIBLE @"SetVisible"
 #define MSG_TEXT_CHANGE @"TextChange"
 #define MSG_TEXT_END_EDIT @"TextEndEdit"
+#define MSG_RETURN_PRESSED @"ReturnPressed"
 
 @interface EditBoxHoldView : UIView
 {

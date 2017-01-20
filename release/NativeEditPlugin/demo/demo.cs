@@ -74,18 +74,6 @@ public class demo : MonoBehaviour {
 		Debug.Log("OnButton3 clicked");
 	}
 
-
-	public void OnButton4()
-	{
-		//rectTrans.sizeDelta = new Vector2(20.0f, 5.0f);
-		//testNativeEdit.SetRectNative(rectTrans);
-
-		Text txt = this.GetComponent<Text>();
-		string sCurText = testNativeEdit.GetTextNative();
-		txt.text = string.Format("[{0}] GetText {1}", this.GetCurObjName(), sCurText);
-		Debug.Log("OnButton4 clicked");
-	}
-
 	public void OnButton5()
 	{
 		Debug.Log("OnButton5 clicked");

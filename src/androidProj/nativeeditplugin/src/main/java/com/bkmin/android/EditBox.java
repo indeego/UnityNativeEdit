@@ -1,13 +1,8 @@
 package com.bkmin.android;
 
-/**
- * Created by kyungminbang on 5/5/15.
- */
-
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import com.unity3d.player.UnityPlayer;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -21,51 +16,33 @@ import android.util.SparseArray;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
-
-/// UnityEditBox Plugin
-/// Written by bkmin 2015/5 (kmin.bang@gmail.com)
+import android.widget.TextView;
 
 public class EditBox {
     private EditText edit;
-    private RelativeLayout	layout;
+    private final RelativeLayout layout;
     private int tag;
-    private String unityName;
-    public boolean isActive = false;
 
     private static SparseArray<EditBox> mapEditBox = null;
-    private static String MSG_CREATE = "CreateEdit";
-    private static String MSG_REMOVE = "RemoveEdit";
-    private static String MSG_SET_TEXT = "SetText";
-    private static String MSG_GET_TEXT = "GetText";
-    private static String MSG_SET_RECT = "SetRect";
-    private static String MSG_SET_FOCUS = "SetFocus";
-    private static String MSG_SET_VISIBLE = "SetVisible";
-    private static String MSG_TEXT_CHANGE = "TextChange";
-    private static String MSG_TEXT_END_EDIT = "TextEndEdit";
-    private static String MSG_ANDROID_KEY_DOWN = "AndroidKeyDown";
+    private static final String MSG_CREATE = "CreateEdit";
+    private static final String MSG_REMOVE = "RemoveEdit";
+    private static final String MSG_SET_TEXT = "SetText";
+    private static final String MSG_SET_RECT = "SetRect";
+    private static final String MSG_SET_FOCUS = "SetFocus";
+    private static final String MSG_SET_VISIBLE = "SetVisible";
+    private static final String MSG_TEXT_CHANGE = "TextChange";
+    private static final String MSG_TEXT_END_EDIT = "TextEndEdit";
+    private static final String MSG_ANDROID_KEY_DOWN = "AndroidKeyDown";
+    private static final String MSG_RETURN_PRESSED = "ReturnPressed";
 
-    public static JSONObject makeJsonRet(boolean isError, String strError)
+    public static void processRecvJsonMsg(int nSenderId, final String strJson)
     {
-        JSONObject json = new JSONObject();
-        try
-        {
-            json.put("bError", isError);
-            json.put("strError", strError);
-        }
-        catch(JSONException e) {}
-        return json;
-    }
-
-    public static JSONObject processRecvJsonMsg(int nSenderId, final String strJson)
-    {
-        JSONObject jsonRet = null;
-
-        if (mapEditBox == null) mapEditBox = new SparseArray<EditBox>();
+        if (mapEditBox == null) mapEditBox = new SparseArray<>();
 
         try
         {
@@ -77,13 +54,12 @@ public class EditBox {
                 EditBox nb = new EditBox(NativeEditPlugin.mainLayout);
                 nb.Create(nSenderId, jsonMsg);
                 mapEditBox.append(nSenderId, nb);
-                jsonRet = makeJsonRet(false, "");
             }
             else
             {
                 EditBox eb =  mapEditBox.get(nSenderId);
                 if (eb != null) {
-                    jsonRet = eb.processJsonMsg(jsonMsg);
+                    eb.processJsonMsg(jsonMsg);
                 }
                 else
                 {
@@ -95,21 +71,20 @@ public class EditBox {
         } catch (JSONException e)
         {
         }
-        return jsonRet;
     }
 
-    public EditBox(RelativeLayout mainLayout)
+    private EditBox(RelativeLayout mainLayout)
     {
         layout = mainLayout;
         edit = null;
     }
 
-    public void showKeyboard(boolean isShow)
+    private void showKeyboard(boolean isShow)
     {
         InputMethodManager imm = (InputMethodManager) NativeEditPlugin.unityActivity.getSystemService(Activity.INPUT_METHOD_SERVICE);
         if (isShow)
         {
-            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
+            imm.showSoftInput(edit, InputMethodManager.SHOW_FORCED);
         }
         else
         {
@@ -119,54 +94,43 @@ public class EditBox {
         }
     }
 
-    public JSONObject processJsonMsg(JSONObject jsonMsg)
+    private void processJsonMsg(JSONObject jsonMsg)
     {
-        JSONObject jsonRet = makeJsonRet(false, "");
         try
         {
             String msg = jsonMsg.getString("msg");
 
-            if (msg.equals(MSG_REMOVE))
-            {
-                this.Remove();
-            }
-            else if (msg.equals(MSG_SET_TEXT))
-            {
-                String text = jsonMsg.getString("text");
-                this.SetText(text);
-            }
-            else if (msg.equals(MSG_GET_TEXT))
-            {
-                String text = this.GetText();
-                jsonRet.put("text", text);
-            }
-            else if (msg.equals(MSG_SET_RECT))
-            {
-                this.SetRect(jsonMsg);
-            }
-            else if (msg.equals(MSG_SET_FOCUS))
-            {
-                boolean isFocus = jsonMsg.getBoolean("isFocus");
-                this.SetFocus(isFocus);
-            }
-            else if (msg.equals(MSG_SET_VISIBLE))
-            {
-                boolean isVisible = jsonMsg.getBoolean("isVisible");
-                this.SetVisible(isVisible);
-            }
-            else if (msg.equals(MSG_ANDROID_KEY_DOWN))
-            {
-                String strKey = jsonMsg.getString("key");
-                this.OnForceAndroidKeyDown(strKey);
+            switch (msg) {
+                case MSG_REMOVE:
+                    this.Remove();
+                    break;
+                case MSG_SET_TEXT:
+                    String text = jsonMsg.getString("text");
+                    this.SetText(text);
+                    break;
+                case MSG_SET_RECT:
+                    this.SetRect(jsonMsg);
+                    break;
+                case MSG_SET_FOCUS:
+                    boolean isFocus = jsonMsg.getBoolean("isFocus");
+                    this.SetFocus(isFocus);
+                    break;
+                case MSG_SET_VISIBLE:
+                    boolean isVisible = jsonMsg.getBoolean("isVisible");
+                    this.SetVisible(isVisible);
+                    break;
+                case MSG_ANDROID_KEY_DOWN:
+                    String strKey = jsonMsg.getString("key");
+                    this.OnForceAndroidKeyDown(strKey);
+                    break;
             }
 
         } catch (JSONException e)
         {
         }
-        return jsonRet;
     }
 
-    public void SendJsonToUnity(JSONObject jsonToUnity)
+    private void SendJsonToUnity(JSONObject jsonToUnity)
     {
         try
         {
@@ -176,7 +140,7 @@ public class EditBox {
         NativeEditPlugin.SendUnityMessage(jsonToUnity);
     }
 
-    public void Create(int _tag, JSONObject jsonObj)
+    private void Create(int _tag, JSONObject jsonObj)
     {
         this.tag = _tag;
 
@@ -199,17 +163,24 @@ public class EditBox {
             int backColor_g = (int) (255.0f * jsonObj.getDouble("backColor_g"));
             int backColor_b = (int) (255.0f * jsonObj.getDouble("backColor_b"));
             int backColor_a = (int) (255.0f * jsonObj.getDouble("backColor_a"));
+            int placeHolderColor_r = (int) (255.0f * jsonObj.getDouble("placeHolderColor_r"));
+            int placeHolderColor_g = (int) (255.0f * jsonObj.getDouble("placeHolderColor_g"));
+            int placeHolderColor_b = (int) (255.0f * jsonObj.getDouble("placeHolderColor_b"));
+            int placeHolderColor_a = (int) (255.0f * jsonObj.getDouble("placeHolderColor_a"));
 
             String contentType = jsonObj.getString("contentType");
             String inputType = jsonObj.optString("inputType");
             String keyboardType = jsonObj.optString("keyboardType");
-            String characterValidation = jsonObj.optString("characterValidation");
+            String returnKeyType = jsonObj.getString("return_key_type");
 
             String alignment = jsonObj.getString("align");
-            boolean withDoneButton = jsonObj.getBoolean("withDoneButton");
             boolean multiline = jsonObj.getBoolean("multiline");
 
             edit = new EditText(NativeEditPlugin.unityActivity.getApplicationContext());
+
+            // It's important to set this first as it resets some things, for example character hiding if content type is password.
+            edit.setSingleLine(!multiline);
+
             edit.setId(0);
             edit.setText("");
             edit.setHint(placeHolder);
@@ -220,17 +191,17 @@ public class EditBox {
             edit.setLayoutParams(lp);
             edit.setPadding(0, 0, 0, 0);
 
-            int editInputType = edit.getInputType();
+            int editInputType = 0;
             switch (contentType) {
-                case "Standard" : editInputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_VARIATION_NORMAL; break; // This is default behaviour
+                case "Standard" : editInputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES; break; // This is default behaviour
                 case "Autocorrected" : editInputType |= InputType.TYPE_CLASS_TEXT  | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT; break;
-                case "IntegerNumber" : editInputType |= InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_NORMAL; break;
+                case "IntegerNumber" : editInputType |= InputType.TYPE_CLASS_NUMBER; break;
                 case "DecimalNumber" : editInputType |= InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL; break;
-                case "Alphanumeric" : editInputType |= InputType.TYPE_CLASS_TEXT  | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_VARIATION_NORMAL; break; // This is default behaviour
-                case "Name" : editInputType |= InputType.TYPE_TEXT_VARIATION_PERSON_NAME; break;
-                case "EmailAddress" : editInputType |= InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
-                case "Password" : editInputType |= InputType.TYPE_TEXT_VARIATION_PASSWORD; break;
-                case "Pin" : editInputType |= InputType.TYPE_TEXT_VARIATION_PHONETIC; break;
+                case "Alphanumeric" : editInputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES; break; // This is default behaviour
+                case "Name" : editInputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME; break;
+                case "EmailAddress" : editInputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS; break;
+                case "Password" : editInputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD; break;
+                case "Pin" : editInputType |= InputType.TYPE_CLASS_PHONE; break;
 
                 case "Custom" : // We need more details
                     switch (keyboardType) {
@@ -241,7 +212,7 @@ public class EditBox {
                         case "PhonePad" : editInputType = InputType.TYPE_CLASS_PHONE;  break;
                         case "NamePhonePad" : editInputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME; break;
                         case "EmailAddress" : editInputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS; break;
-                        default :  editInputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL;
+                        default :  editInputType = InputType.TYPE_CLASS_TEXT;
                     }
 
                     if (multiline) editInputType  |=  InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
@@ -252,59 +223,64 @@ public class EditBox {
                     }
                     break;
 
-                default : editInputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL; break; // No action
+                default : editInputType |= InputType.TYPE_CLASS_TEXT; break; // No action
 
             }
 
             edit.setInputType(editInputType);
 
             int gravity = 0;
-            if (alignment.equals("UpperLeft"))
-            {
-                gravity = Gravity.TOP | Gravity.LEFT;
+            switch (alignment) {
+                case "UpperLeft":
+                    gravity = Gravity.TOP | Gravity.LEFT;
+                    break;
+                case "UpperCenter":
+                    gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+                    break;
+                case "UpperRight":
+                    gravity = Gravity.TOP | Gravity.RIGHT;
+                    break;
+                case "MiddleLeft":
+                    gravity = Gravity.CENTER_VERTICAL | Gravity.LEFT;
+                    break;
+                case "MiddleCenter":
+                    gravity = Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL;
+                    break;
+                case "MiddleRight":
+                    gravity = Gravity.CENTER_VERTICAL | Gravity.RIGHT;
+                    break;
+                case "LowerLeft":
+                    gravity = Gravity.BOTTOM | Gravity.LEFT;
+                    break;
+                case "LowerCenter":
+                    gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+                    break;
+                case "LowerRight":
+                    gravity = Gravity.BOTTOM | Gravity.RIGHT;
+                    break;
             }
-            else if (alignment.equals("UpperCenter"))
-            {
-                gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+
+            int imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+            if (returnKeyType.equals("Next")) {
+                imeOptions |= EditorInfo.IME_ACTION_NEXT;
             }
-            else if (alignment.equals("UpperRight"))
-            {
-                gravity = Gravity.TOP | Gravity.RIGHT;
+            else if (returnKeyType.equals("Done")) {
+                imeOptions |= EditorInfo.IME_ACTION_DONE;
             }
-            else if (alignment.equals("MiddleLeft"))
-            {
-                gravity = Gravity.CENTER_VERTICAL | Gravity.LEFT;
-            }
-            else if (alignment.equals("MiddleCenter"))
-            {
-                gravity = Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL;
-            }
-            else if (alignment.equals("MiddleRight"))
-            {
-                gravity = Gravity.CENTER_VERTICAL | Gravity.RIGHT;
-            }
-            else if (alignment.equals("LowerLeft"))
-            {
-                gravity = Gravity.BOTTOM | Gravity.LEFT;
-            }
-            else if (alignment.equals("LowerCenter"))
-            {
-                gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-            }
-            else if (alignment.equals("LowerRight"))
-            {
-                gravity = Gravity.BOTTOM | Gravity.RIGHT;
-            }
+            edit.setImeOptions(imeOptions);
+
             edit.setGravity(gravity);
 
 
             edit.setTextSize(TypedValue.COMPLEX_UNIT_PX, (float) fontSize);
             edit.setTextColor(Color.argb(textColor_a, textColor_r, textColor_g, textColor_b));
             edit.setBackgroundColor(Color.argb(backColor_a, backColor_r, backColor_g, backColor_b));
+            edit.setHintTextColor(Color.argb(placeHolderColor_a, placeHolderColor_r, placeHolderColor_g, placeHolderColor_b));
 
-            Typeface tf = Typeface.create(font, Typeface.NORMAL);
-            edit.setTypeface(tf);
-            edit.setSingleLine(!multiline);
+            if (font != null && !font.isEmpty()) {
+                Typeface tf = Typeface.create(font, Typeface.NORMAL);
+                edit.setTypeface(tf);
+            }
 
             final EditBox eb = this;
 
@@ -354,18 +330,33 @@ public class EditBox {
                 }
             });
 
-            layout.setFocusableInTouchMode(true);
-            layout.setClickable(true);
+            edit.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                    if ((actionId == EditorInfo.IME_ACTION_DONE) || (actionId == EditorInfo.IME_ACTION_NEXT)) {
+                        JSONObject jsonToUnity = new JSONObject();
+                        try
+                        {
+                            jsonToUnity.put("msg", MSG_RETURN_PRESSED);
+                        }
+                        catch(JSONException e) {}
+
+                        eb.SendJsonToUnity(jsonToUnity);
+                        return true;
+                    }
+                    return false;
+                }
+            });
+
             layout.addView(edit);
 
         } catch (JSONException e)
         {
             Log.i(NativeEditPlugin.LOG_TAG, String.format("Create editbox error %s", e.getMessage()));
-            return;
         }
     }
 
-    public void Remove()
+    private void Remove()
     {
         if (edit != null) {
             layout.removeView(edit);
@@ -373,23 +364,23 @@ public class EditBox {
         edit = null;
     }
 
-    public void SetText(String newText)
+    private void SetText(String newText)
     {
         if (edit != null) {
             edit.setText(newText);
         }
     }
-    public String GetText()
+    private String GetText()
     {
         return edit.getText().toString();
     }
 
-    public boolean isFocused()
+    private boolean isFocused()
     {
         return edit.isFocused();
     }
 
-    public void SetFocus(boolean isFocus)
+    private void SetFocus(boolean isFocus)
     {
         if (isFocus)
         {
@@ -403,7 +394,7 @@ public class EditBox {
         this.showKeyboard(isFocus);
     }
 
-    public void SetRect(JSONObject jsonRect)
+    private void SetRect(JSONObject jsonRect)
     {
         try
         {
@@ -419,21 +410,21 @@ public class EditBox {
 
         } catch (JSONException e)
         {
-            return;
         }
     }
 
-    public void SetVisible(boolean bVisible)
+    private void SetVisible(boolean bVisible)
     {
         edit.setEnabled(bVisible);
         edit.setVisibility(bVisible ? View.VISIBLE : View.INVISIBLE);
     }
 
-    public void OnForceAndroidKeyDown(String strKey)
+    private void OnForceAndroidKeyDown(String strKey)
     {
         if (!this.isFocused()) return;
 
         // Need to force fire key event of backspace and enter because Unity eats them and never return back to plugin.
+        // Same happens on number keys on top of the keyboard with Google Keyboard on password fields.
         int keyCode = -1;
         if (strKey.equalsIgnoreCase("backspace"))
         {
@@ -442,6 +433,46 @@ public class EditBox {
         else if (strKey.equalsIgnoreCase("enter"))
         {
             keyCode = KeyEvent.KEYCODE_ENTER;
+        }
+        else if (strKey.equals("0"))
+        {
+            keyCode = KeyEvent.KEYCODE_0;
+        }
+        else if (strKey.equals("1"))
+        {
+            keyCode = KeyEvent.KEYCODE_1;
+        }
+        else if (strKey.equals("2"))
+        {
+            keyCode = KeyEvent.KEYCODE_2;
+        }
+        else if (strKey.equals("3"))
+        {
+            keyCode = KeyEvent.KEYCODE_3;
+        }
+        else if (strKey.equals("4"))
+        {
+            keyCode = KeyEvent.KEYCODE_4;
+        }
+        else if (strKey.equals("5"))
+        {
+            keyCode = KeyEvent.KEYCODE_5;
+        }
+        else if (strKey.equals("6"))
+        {
+            keyCode = KeyEvent.KEYCODE_6;
+        }
+        else if (strKey.equals("7"))
+        {
+            keyCode = KeyEvent.KEYCODE_7;
+        }
+        else if (strKey.equals("8"))
+        {
+            keyCode = KeyEvent.KEYCODE_8;
+        }
+        else if (strKey.equals("9"))
+        {
+            keyCode = KeyEvent.KEYCODE_9;
         }
         if (keyCode > 0)
         {
