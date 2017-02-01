@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2015 Kyungmin Bang
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -29,37 +29,14 @@ using System;
 using System.IO;
 using AOT;
 
-public abstract class PluginMsgReceiver : MonoBehaviour
-{
-	private	int		nReceiverId;
-
-	protected void Start()
-	{
-		nReceiverId = PluginMsgHandler.getInst().RegisterAndGetReceiverId(this);
-	}
-
-	protected void OnDestroy()
-	{
-		PluginMsgHandler.getInst().RemoveReceiver(nReceiverId);
-	}
-
-	protected void Update()
-	{
-	}
-
-	protected JsonObject SendPluginMsg(JsonObject jsonMsg)
-	{
-		return PluginMsgHandler.getInst().SendMsgToPlugin(nReceiverId, jsonMsg);
-	}
-
-	public abstract void OnPluginMsgDirect(JsonObject jsonMsg);  
-}
-
 public class PluginMsgHandler : MonoBehaviour {
 	private static PluginMsgHandler inst;
 	public 	static PluginMsgHandler getInst() {		return inst; }
 
-	private static bool 	sPluginInitialized = false;
+	#if UNITY_IPHONE
+	private static bool sPluginInitialized = false;
+	#endif
+
 	private int	snCurReceiverIdx = 0;
 	private Dictionary<int, PluginMsgReceiver>		m_dictReceiver = new Dictionary<int, PluginMsgReceiver>();
 	
@@ -71,9 +48,41 @@ public class PluginMsgHandler : MonoBehaviour {
 	private static string MSG_SHOW_KEYBOARD = "ShowKeyboard";
 	private static string DEFAULT_NAME = "NativeEditPluginHandler";
 	private static bool   ENABLE_WRITE_LOG = false;
+	private static GameObject instance;
+
+	private bool IsEditor {
+		get {
+			#if UNITY_EDITOR
+			return true;
+			#else
+			return false;
+			#endif
+		}
+	}
+
+	private bool IsStandalone {
+		get {			
+			#if UNITY_STANDALONE
+			return true;
+			#else
+			return false;
+			#endif
+		}
+	}
+
 
 	void Awake()
 	{
+		// Don't destroy on load and make sure there is only one instance existing. Without this the
+		// events didn't seem to work after a scene reload.
+		if (instance != null)
+		{
+			Destroy(gameObject);
+			return;
+		}
+		instance = gameObject;
+		DontDestroyOnLoad(gameObject);
+
 		int tempRandom = (int) UnityEngine.Random.Range(0, 10000.0f);
 		this.name = DEFAULT_NAME + tempRandom.ToString();
 
@@ -158,8 +167,15 @@ public class PluginMsgHandler : MonoBehaviour {
 		else
 		{
 			int nSenderId = jsonMsg.GetInt("senderId");
-			PluginMsgReceiver receiver = PluginMsgHandler.getInst().GetReceiver(nSenderId);
-			receiver.OnPluginMsgDirect(jsonMsg);
+
+			// In some cases the receiver might be already removed, for example if a button is pressed
+			// that will destoy the receiver while the input field is focused an end editing message
+			// will be sent from the plugin after the receiver is already destroyed on Unity side.
+			if (m_dictReceiver.ContainsKey(nSenderId))
+			{
+				PluginMsgReceiver receiver = PluginMsgHandler.getInst().GetReceiver(nSenderId);
+				receiver.OnPluginMsgDirect(jsonMsg);
+			}
 		}
 	}
 	
@@ -172,11 +188,8 @@ public class PluginMsgHandler : MonoBehaviour {
 	private static extern void _iOS_ClosePluginMsgHandler();	
 
 	public void InitializeHandler()
-	{
-		#if UNITY_EDITOR
-		return;
-		#endif
-		if (sPluginInitialized) return;
+	{		
+		if (IsEditor || sPluginInitialized) return;
 
 		_iOS_InitPluginMsgHandler(this.name);
 		sPluginInitialized = true;
@@ -184,33 +197,29 @@ public class PluginMsgHandler : MonoBehaviour {
 	
 	public void FinalizeHandler()
 	{
-		#if UNITY_EDITOR
-		return;
-		#endif
-		_iOS_ClosePluginMsgHandler();
+		if (!IsEditor)
+			_iOS_ClosePluginMsgHandler();
+		
 	}
 
 	#elif UNITY_ANDROID 
 
 	private static AndroidJavaClass smAndroid;
 	public void InitializeHandler()
-	{
-		#if UNITY_EDITOR
-		return;
-		#endif
-		if (sPluginInitialized) return;
+	{	
+		if (IsEditor) return;
 
-		smAndroid = new AndroidJavaClass("com.bkmin.android.NativeEditPlugin");
+		// Reinitialization was made possible on Android to be able to use as a workaround in an issue where the
+		// NativeEditBox text would be hidden after using Unity's Handheld.PlayFullScreenMovie().
+		if (smAndroid == null)
+			smAndroid = new AndroidJavaClass("com.bkmin.android.NativeEditPlugin");
 		smAndroid.CallStatic("InitPluginMsgHandler", this.name);
-		sPluginInitialized = true;
 	}
 	
 	public void FinalizeHandler()
-	{
-		#if UNITY_EDITOR
-		return;
-		#endif
-		smAndroid.CallStatic("ClosePluginMsgHandler");
+	{	
+		if (!IsEditor)
+			smAndroid.CallStatic("ClosePluginMsgHandler");
 	}
 
 	#else
@@ -225,22 +234,22 @@ public class PluginMsgHandler : MonoBehaviour {
 
 	
 	public JsonObject SendMsgToPlugin(int nSenderId, JsonObject jsonMsg)
-	{
-		#if UNITY_EDITOR
-		return new JsonObject();
+	{	
+		#if UNITY_EDITOR || UNITY_STANDALONE
+			return new JsonObject();
+		#else
+			jsonMsg["senderId"] = nSenderId;
+			string strJson = jsonMsg.Serialize();
+
+			string strRet = "";
+			#if UNITY_IPHONE
+			strRet = _iOS_SendUnityMsgToPlugin(nSenderId, strJson);
+			#elif UNITY_ANDROID 
+			strRet = smAndroid.CallStatic<string>("SendUnityMsgToPlugin", nSenderId, strJson);
+			#endif
+
+			JsonObject jsonRet = new JsonObject(strRet);
+			return jsonRet;
 		#endif
-
-		jsonMsg["senderId"] = nSenderId;
-		string strJson = jsonMsg.Serialize();
-
-		string strRet = "";
-		#if UNITY_IPHONE
-		strRet = _iOS_SendUnityMsgToPlugin(nSenderId, strJson);
-		#elif UNITY_ANDROID 
-		strRet = smAndroid.CallStatic<string>("SendUnityMsgToPlugin", nSenderId, strJson);
-		#endif
-
-		JsonObject jsonRet = new JsonObject(strRet);
-		return jsonRet;
 	}
 }
