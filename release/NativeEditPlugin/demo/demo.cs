@@ -11,14 +11,14 @@ public class demo : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
-		rectTrans = testNativeEdit.transform.FindChild("Text").GetComponent<RectTransform>();
+		rectTrans = testNativeEdit.transform.Find("Text").GetComponent<RectTransform>();
 
 		GameObject tempTest = GameObject.Instantiate(testNativeEdit.gameObject);
 		tempTest.transform.SetParent(mainCanvas.transform, false);
 		tempTest.transform.position += new Vector3(0.0f, -250.0f, 0.0f);
 
 		NativeEditBox tempNB = tempTest.GetComponent<NativeEditBox>();;
-		tempNB.SetTextNative("fdfdsfsd");
+//		tempNB.SetTextNative("fdfdsfsd");
 	}
 	
 	// Update is called once per frame
@@ -57,7 +57,7 @@ public class demo : MonoBehaviour {
 	{
 		bTempFocus = !bTempFocus;
 		Debug.Log("OnButton1 clicked");
-		testNativeEdit.SetFocusNative(bTempFocus);
+//		testNativeEdit.SetFocusNative(bTempFocus);
 	}
 
 	public void OnButton2()
@@ -74,22 +74,10 @@ public class demo : MonoBehaviour {
 		Debug.Log("OnButton3 clicked");
 	}
 
-
-	public void OnButton4()
-	{
-		//rectTrans.sizeDelta = new Vector2(20.0f, 5.0f);
-		//testNativeEdit.SetRectNative(rectTrans);
-
-		Text txt = this.GetComponent<Text>();
-		string sCurText = testNativeEdit.GetTextNative();
-		txt.text = string.Format("[{0}] GetText {1}", this.GetCurObjName(), sCurText);
-		Debug.Log("OnButton4 clicked");
-	}
-
 	public void OnButton5()
 	{
 		Debug.Log("OnButton5 clicked");
-		testNativeEdit.SetTextNative("TestText Set!!@#@5");
+//		testNativeEdit.SetTextNative("TestText Set!!@#@5");
 	}
 
 	

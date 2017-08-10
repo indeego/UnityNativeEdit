@@ -1,7 +1,5 @@
 fileFormatVersion: 2
-guid: ca56f230e8554c146818642d411d9183
-timeCreated: 1459854746
-licenseType: Free
+guid: ead440a6679c8498bad6d96a9f96282e
 PluginImporter:
   serializedVersion: 1
   iconMap: {}
@@ -9,6 +7,13 @@ PluginImporter:
   isPreloaded: 0
   platformData:
     Any:
+      enabled: 0
+      settings: {}
+    Editor:
+      enabled: 0
+      settings:
+        DefaultValueInitialized: true
+    iOS:
       enabled: 1
       settings: {}
   userData: 

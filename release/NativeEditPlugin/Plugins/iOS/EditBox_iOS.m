@@ -9,8 +9,8 @@ UIViewController* unityViewController = nil;
 NSMutableDictionary*    dictEditBox = nil;
 EditBoxHoldView*         viewPlugin = nil;
 
-#define DEF_PixelPerPoint 2.2639f // 72 points per inch. iPhone 163DPI
 char    g_unityName[64];
+int characterLimit;
 
 bool approxEqualFloat(float x, float y)
 {
@@ -189,14 +189,25 @@ bool approxEqualFloat(float x, float y)
     float width = [json getFloat:@"width"] * viewController.view.bounds.size.width;
     float height = [json getFloat:@"height"] * viewController.view.bounds.size.height;
     
+    characterLimit = [json getInt:@"characterLimit"];
+    
     float textColor_r = [json getFloat:@"textColor_r"];
     float textColor_g = [json getFloat:@"textColor_g"];
     float textColor_b = [json getFloat:@"textColor_b"];
     float textColor_a = [json getFloat:@"textColor_a"];
+    UIColor* textColor = [UIColor colorWithRed:textColor_r green:textColor_g blue:textColor_b alpha:textColor_a];
+    
     float backColor_r = [json getFloat:@"backColor_r"];
     float backColor_g = [json getFloat:@"backColor_g"];
     float backColor_b = [json getFloat:@"backColor_b"];
     float backColor_a = [json getFloat:@"backColor_a"];
+    UIColor* backgroundColor = [UIColor colorWithRed:backColor_r green:backColor_g blue:backColor_b alpha:backColor_a];
+    
+    float placeHolderColor_r = [json getFloat:@"placeHolderColor_r"];
+    float placeHolderColor_g = [json getFloat:@"placeHolderColor_g"];
+    float placeHolderColor_b = [json getFloat:@"placeHolderColor_b"];
+    float placeHolderColor_a = [json getFloat:@"placeHolderColor_a"];
+    UIColor* placeHolderColor = [UIColor colorWithRed:placeHolderColor_r green:placeHolderColor_g blue:placeHolderColor_b alpha:placeHolderColor_a];
     
     NSString* contentType = [json getString:@"contentType"];
     NSString* alignment = [json getString:@"align"];
@@ -288,8 +299,6 @@ bool approxEqualFloat(float x, float y)
         valign = UIControlContentVerticalAlignmentBottom;
         halign = UIControlContentHorizontalAlignmentRight;
     }
-
-    fontSize = fontSize / DEF_PixelPerPoint;
    
     if (withDoneButton)
     {
@@ -306,24 +315,53 @@ bool approxEqualFloat(float x, float y)
         keyboardDoneButtonView = nil;
     }
     
+    UIReturnKeyType returnKeyType = UIReturnKeyDefault;
+    NSString* returnKeyTypeString = [json getString:@"return_key_type"];
+    if ([returnKeyTypeString isEqualToString:@"Next"])
+    {
+        returnKeyType = UIReturnKeyNext;
+    }
+    else if ([returnKeyTypeString isEqualToString:@"Done"])
+    {
+        returnKeyType = UIReturnKeyDone;
+    }
+    
+    // Conversion for retina displays
+    fontSize = fontSize / [UIScreen mainScreen].scale;
+    
+    UIFont* uiFont;
+    if ([font length] > 0)
+    {
+        uiFont = [UIFont fontWithName:font size:fontSize];
+    }
+    else
+    {
+        uiFont = [UIFont systemFontOfSize:fontSize];
+    }    
+    
     if (multiline)
     {
         PlaceholderTextView* textView = [[PlaceholderTextView alloc] initWithFrame:CGRectMake(x, y, width, height)];
         textView.keyboardType = keyType;
-        [textView setFont:[UIFont fontWithName:font size:fontSize]];
+        
+        [textView setFont:uiFont];
+        
         textView.scrollEnabled = TRUE;
         
         textView.delegate = self;
         textView.tag = 0;
         textView.text = @"";
         
-        textView.textColor = [UIColor colorWithRed:textColor_r green:textColor_g blue:textColor_b alpha:textColor_a];
-        textView.backgroundColor =[UIColor colorWithRed:backColor_r green:backColor_g blue:backColor_b alpha:backColor_a];
-        textView.returnKeyType = UIReturnKeyDefault;
-        textView.autocorrectionType = autoCorr ? UITextAutocorrectionTypeYes : UITextAutocorrectionTypeNo  ;
+        textView.textColor = textColor;
+        textView.backgroundColor = backgroundColor;
+        textView.returnKeyType = returnKeyType;
+        textView.autocorrectionType = autoCorr ? UITextAutocorrectionTypeYes : UITextAutocorrectionTypeNo;
         textView.contentInset = UIEdgeInsetsMake(0.0f, 0.0f, 0.0f, 0.0f);
         textView.placeholder = placeholder;
+        textView.placeholderColor = placeHolderColor;
         textView.delegate = self;
+        if (keyType == UIKeyboardTypeEmailAddress)
+            textView.autocapitalizationType = UITextAutocapitalizationTypeNone;
         
         [textView setSecureTextEntry:password];
         if (keyboardDoneButtonView != nil) textView.inputAccessoryView = keyboardDoneButtonView;
@@ -338,18 +376,21 @@ bool approxEqualFloat(float x, float y)
     {
         UITextField* textField = [[UITextField alloc] initWithFrame:CGRectMake(x, y, width, height)];
         textField.keyboardType = keyType;
-        [textField setFont:[UIFont fontWithName:font size:fontSize]];
+        [textField setFont:uiFont];
         textField.delegate = self;
         textField.tag = 0;
         textField.text = @"";
-        textField.textColor = [UIColor colorWithRed:textColor_r green:textColor_g blue:textColor_b alpha:textColor_a];
-        textField.backgroundColor =[UIColor colorWithRed:backColor_r green:backColor_g blue:backColor_b alpha:backColor_a];
-        textField.returnKeyType = UIReturnKeyDefault;
+        textField.textColor = textColor;
+        textField.backgroundColor = backgroundColor;
+        textField.returnKeyType = returnKeyType;
         textField.autocorrectionType = autoCorr ? UITextAutocorrectionTypeYes : UITextAutocorrectionTypeNo;
         textField.contentVerticalAlignment = valign;
         textField.contentHorizontalAlignment = halign;
-        textField.placeholder = placeholder;
+        // Settings the placeholder like this is needed because otherwise it will not be visible
+        textField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeholder attributes:@{NSForegroundColorAttributeName: placeHolderColor}];
         textField.delegate = self;
+        if (keyType == UIKeyboardTypeEmailAddress)
+            textField.autocapitalizationType = UITextAutocapitalizationTypeNone;
         
         [textField addTarget:self action:@selector(textFieldDidChange:) forControlEvents:UIControlEventEditingChanged];
         [textField setSecureTextEntry:password];
@@ -464,13 +505,32 @@ bool approxEqualFloat(float x, float y)
     [self onTextEditEnd:textView.text];
 }
 
--(void) textFieldDidChange :(UITextField *)theTextField{
-    [self onTextChange:theTextField.text];
+- (BOOL)textFieldShouldReturn:(UITextField *)textField
+{
+    if (![editView isFirstResponder]) return YES;
+    JsonObject* jsonToUnity = [[JsonObject alloc] init];
+    
+    [jsonToUnity setString:@"msg" value:MSG_RETURN_PRESSED];
+    [self sendJsonToUnity:jsonToUnity];
+    return YES;
 }
 
--(void) textFieldDidEndEditing:(UITextField *)textField
-{
-    [self onTextEditEnd:textField.text];
+- (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string {
+    // Prevent crashing undo bug – see note below.
+    if(range.length + range.location > textField.text.length)
+    {
+        return NO;
+    }
+    
+    NSUInteger newLength = [textField.text length] + [string length] - range.length;
+    if(characterLimit > 0)
+        return newLength <= characterLimit;
+    else
+        return YES;
+}
+
+-(void) textFieldDidChange :(UITextField *)theTextField{
+    [self onTextChange:theTextField.text];
 }
 
 -(void) keyboardWillShow:(NSNotification *)notification
